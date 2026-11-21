@@ -24,11 +24,16 @@ function fetchWithTimeout(
     return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timer));
 }
 
+// GET endpoints that hit the LLM and need the longer AI timeout
+const AI_GET_ENDPOINTS = ['/setup/', '/gatekeeper/', '/issues/', '/repository/graph/', '/history/'];
+
 export const apiClient = {
     get: async (endpoint: string) => {
+        const isAiEndpoint = AI_GET_ENDPOINTS.some(p => endpoint.startsWith(p));
+        const timeout = isAiEndpoint ? AI_TIMEOUT_MS : TIMEOUT_MS;
         let res: Response;
         try {
-            res = await fetchWithTimeout(`${BASE_URL}${endpoint}`);
+            res = await fetchWithTimeout(`${BASE_URL}${endpoint}`, {}, timeout);
         } catch (err: any) {
             if (err.name === 'AbortError') throw new Error(`Request timed out: ${endpoint}`);
             throw new Error(`Network error: ${err.message}`);
@@ -45,7 +50,7 @@ export const apiClient = {
                 body: body ? JSON.stringify(body) : undefined,
             }, endpoint === '/repository/ingest'
                 ? INGEST_TIMEOUT_MS
-                : endpoint === '/explain' || endpoint === '/intent' || endpoint === '/chatbot'
+                : endpoint === '/explain' || endpoint === '/intent' || endpoint === '/chatbot' || endpoint === '/repository/vectorize'
                     ? AI_TIMEOUT_MS
                     : TIMEOUT_MS);
         } catch (err: any) {

@@ -128,7 +128,7 @@ def _chunk_file(file_path: str, language: str, source: bytes) -> list[CodeChunk]
 
                 chunk_type = "class" if "class" in capture_name else "function"
                 chunks.append(CodeChunk(
-                    chunk_id=_make_id(file_path, content),
+                    chunk_id=_make_id(file_path, content, start),
                     file_path=file_path,
                     language=language,
                     chunk_type=chunk_type,
@@ -155,9 +155,9 @@ def _chunk_file(file_path: str, language: str, source: bytes) -> list[CodeChunk]
     return chunks
 
 
-def _make_id(file_path: str, content: str) -> str:
+def _make_id(file_path: str, content: str, start_line: int = 0) -> str:
     """Stable, collision-resistant chunk ID."""
-    return hashlib.sha256(f"{file_path}::{content[:200]}".encode()).hexdigest()[:16]
+    return hashlib.sha256(f"{file_path}:{start_line}::{content[:200]}".encode()).hexdigest()[:24]
 
 
 # ---------------------------------------------------------------------------
@@ -207,11 +207,21 @@ def _store_chunks_in_chroma(
 ) -> None:
     col = disk_store.get_or_create_vector_collection("code_chunks")
 
+    # Deduplicate by chunk_id to avoid DuplicateIDError
+    seen_ids: set[str] = set()
+    unique_chunks: list[CodeChunk] = []
+    unique_vectors: list[list[float]] = []
+    for c, v in zip(chunks, vectors):
+        if c.chunk_id not in seen_ids:
+            seen_ids.add(c.chunk_id)
+            unique_chunks.append(c)
+            unique_vectors.append(v)
+
     # Batch upsert (ChromaDB recommends batches ≤ 5000)
     BATCH = 500
-    for i in range(0, len(chunks), BATCH):
-        batch_c = chunks[i : i + BATCH]
-        batch_v = vectors[i : i + BATCH]
+    for i in range(0, len(unique_chunks), BATCH):
+        batch_c = unique_chunks[i : i + BATCH]
+        batch_v = unique_vectors[i : i + BATCH]
         col.upsert(
             ids=[c.chunk_id for c in batch_c],
             embeddings=batch_v,
