@@ -61,8 +61,13 @@ class IngestResponse(BaseModel):
 
 def _parse_owner_repo(github_url: str) -> tuple[str, str]:
     """Extract (owner, repo) from a validated GitHub URL."""
-    parts = github_url.replace("https://github.com/", "").split("/")
-    return parts[0], parts[1]
+    import re
+    cleaned = github_url.strip().strip("<>").rstrip("/")
+    match = re.search(r"github\.com/([^/]+)/([^/]+)", cleaned)
+    if match:
+        return match.group(1), match.group(2).removesuffix(".git")
+    parts = cleaned.replace("https://github.com/", "").replace("http://github.com/", "").split("/")
+    return parts[0], parts[1].removesuffix(".git")
 
 
 async def clone_repo(url: str, dest: str) -> Path:

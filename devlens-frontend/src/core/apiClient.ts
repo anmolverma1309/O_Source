@@ -1,48 +1,63 @@
-const configuredBase = (import.meta.env.VITE_API_BASE_URL || '').trim();
-const BASE_URL = configuredBase
-    ? configuredBase.endsWith('/api/v1')
-        ? configuredBase.replace(/\/$/, '')
-        : `${configuredBase.replace(/\/$/, '')}/api/v1`
-    : '/api/v1';
-
+const BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 const TIMEOUT_MS = 30_000; // 30 seconds for AI calls
+const INGEST_TIMEOUT_MS = 180_000;
+const AI_TIMEOUT_MS = 300_000;
 
-function fetchWithTimeout(url: string, options: RequestInit = {}): Promise<Response> {
+async function throwApiError(res: Response, endpoint: string): Promise<never> {
+    let detail = '';
+    try {
+        const payload = await res.json();
+        detail = typeof payload.detail === 'string' ? payload.detail : '';
+    } catch {
+        // The server may return a non-JSON error page.
+    }
+    throw new Error(`API error ${res.status}: ${detail || endpoint}`);
+}
+
+function fetchWithTimeout(
+    url: string,
+    options: RequestInit = {},
+    timeoutMs = TIMEOUT_MS,
+): Promise<Response> {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
     return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timer));
 }
 
-function buildUrl(endpoint: string): string {
-    const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-    return `${BASE_URL}${normalizedEndpoint}`;
-}
+// GET endpoints that hit the LLM and need the longer AI timeout
+const AI_GET_ENDPOINTS = ['/setup/', '/gatekeeper/', '/issues/', '/repository/graph/', '/history/'];
 
 export const apiClient = {
     get: async (endpoint: string) => {
+        const isAiEndpoint = AI_GET_ENDPOINTS.some(p => endpoint.startsWith(p));
+        const timeout = isAiEndpoint ? AI_TIMEOUT_MS : TIMEOUT_MS;
         let res: Response;
         try {
-            res = await fetchWithTimeout(buildUrl(endpoint));
+            res = await fetchWithTimeout(`${BASE_URL}${endpoint}`, {}, timeout);
         } catch (err: any) {
             if (err.name === 'AbortError') throw new Error(`Request timed out: ${endpoint}`);
             throw new Error(`Network error: ${err.message}`);
         }
-        if (!res.ok) throw new Error(`API error ${res.status}: ${endpoint}`);
+        if (!res.ok) await throwApiError(res, endpoint);
         return res.json();
     },
     post: async (endpoint: string, body?: any) => {
         let res: Response;
         try {
-            res = await fetchWithTimeout(buildUrl(endpoint), {
+            res = await fetchWithTimeout(`${BASE_URL}${endpoint}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: body ? JSON.stringify(body) : undefined,
-            });
+            }, endpoint === '/repository/ingest'
+                ? INGEST_TIMEOUT_MS
+                : endpoint === '/explain' || endpoint === '/intent' || endpoint === '/chatbot' || endpoint === '/repository/vectorize'
+                    ? AI_TIMEOUT_MS
+                    : TIMEOUT_MS);
         } catch (err: any) {
             if (err.name === 'AbortError') throw new Error(`Request timed out: ${endpoint}`);
             throw new Error(`Network error: ${err.message}`);
         }
-        if (!res.ok) throw new Error(`API error ${res.status}: ${endpoint}`);
+        if (!res.ok) await throwApiError(res, endpoint);
         const contentType = res.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
             return res.json();

@@ -1,3 +1,24 @@
+## STATUS OVERVIEW (verified against codebase, 2026-09-13)
+
+Phases 1-8 below are **all implemented**, backend and frontend, contrary to earlier drafts of `implemented.md`. Full detail lives in `implemented.md` — short version:
+
+| Phase | Status |
+| :--- | :--- |
+| 1 — Skeleton & Ingestion | ✅ Done |
+| 2 — Brain & Map (Vector Pipeline, Graph) | ⚠️ Done but vectorize is never auto-triggered on ingest — see Hardening Task 1 |
+| 3 — Intelligence Features (Search, Explain, Intent) | ⚠️ Explain/Intent done + wired; Search backend done, **no frontend command** |
+| 4 — Polish & Production (rate limits, fat-repo check, deploy) | ✅ Done (deploy config: see `render.yaml`) |
+| 5 — Resilience/Security/Institutional Memory | ✅ Done |
+| 6 — Bharat & Contributor Modules | ✅ Done |
+| 7 — DevLens Architect (agentic chatbot) | ✅ Done (`architect_agent.py`, wired via `architect <issue>`) |
+| 8 — Personalization & Feasibility | ⚠️ Gatekeeper done + wired; persona engine done but **no onboarding UI** to set it |
+
+**Before Phase 9 starts:** three small hardening fixes (auto-vectorize, search command, onboarding modal) — see `implemented.md` §5.
+
+**Phase 9 onward:** owned by Anmol — covering Track A (Identity & Data — Phase 9, 10, 14) and Track B (Security & Automation — Phase 11, 16, 13, 15 + Phase 12 summary/churn work), tracked in `implementation-anmol.md`.
+
+---
+
 ### **The Stack Strategy**
 
 * **Frontend:** React \+ Tailwind CSS \+ react-force-graph (for the visualization) \+ framer-motion (for "crazy" animations).  
@@ -181,11 +202,11 @@ You are absolutely right. The previous "Router" model was just a glorified FAQ b
 
 Instead of just *telling* the user what to do, it should **plan the mission** for them.
 
-Here is the **Advanced Phase 7: The "Drop2Life_OpenSource Architect" (Agentic Repo Buddy)**. This replaces the simple router with a state-aware agent that guides the user from "I want to help" to "git push".
+Here is the **Advanced Phase 7: The "DevLens Architect" (Agentic Repo Buddy)**. This replaces the simple router with a state-aware agent that guides the user from "I want to help" to "git push".
 
 ---
 
-### **Phase 7: The "Drop2Life_OpenSource Architect" (End-to-End Contribution Agent)**
+### **Phase 7: The "DevLens Architect" (End-to-End Contribution Agent)**
 
 *Goal: Transform the chatbot into an active "Pair Programmer" that creates a step-by-step contribution plan based on the specific type of issue.*
 
@@ -205,7 +226,7 @@ Here is the **Advanced Phase 7: The "Drop2Life_OpenSource Architect" (Agentic Re
 
 #### **2. The "Investigator" Agent (Connecting Issues to the Graph)**
 
-* **The Problem:** Standard bots just read the issue text. Drop2Life_OpenSource has a **Dependency Graph** (Phase 2). It should use it.
+* **The Problem:** Standard bots just read the issue text. DevLens has a **Dependency Graph** (Phase 2). It should use it.
 * **Technical Implementation:**
 * **Graph-RAG Retrieval:** When a user selects an issue, the Agent doesn't just read the text. It:
 1. Extracts keywords (e.g., "Login failed").
@@ -300,7 +321,7 @@ poetry install
 
 ### **Phase 8: The "Personalization & Feasibility" Layer (Day 15)**
 
-*Goal: Transform Drop2Life_OpenSource from a generic tool into a personalized "Co-Pilot" that adapts to the user's skill level and filters out dead or overwhelming repositories.*
+*Goal: Transform DevLens from a generic tool into a personalized "Co-Pilot" that adapts to the user's skill level and filters out dead or overwhelming repositories.*
 
 **1. The "Gatekeeper" (Repo Health Audit)**
 

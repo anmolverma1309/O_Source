@@ -346,7 +346,7 @@ export const initCommands = () => {
                         const statusRes = await apiClient.get(`/repository/status/${owner}/${repo}`);
 
                         if (statusRes.status === 'completed') {
-                            writeOutput('Vectorization complete.');
+                            writeOutput('Parsing and auto-vectorization complete.');
                             isParsing = false;
                         } else if (statusRes.status === 'failed' || statusRes.status === 'error') {
                             throw new Error('Pipeline parser failed.');
@@ -357,7 +357,8 @@ export const initCommands = () => {
                         }
                     }
 
-                    writeOutput("Ingestion complete. Use 'map' to view dependency graph.");
+                    writeOutput("Ingestion complete. All commands are now ready.");
+                    writeOutput("Try: map, setup, issues, explain <file>, architect <issue>", '#06B6D4');
                     StateMachine.transition('landing');
                 } catch (e: any) {
                     writeOutput(`Ingestion failed: ${e.message}`, '#EF4444');
@@ -551,7 +552,8 @@ export const initCommands = () => {
                 writeOutput('Usage: architect <issue_number>');
                 return;
             }
-            const issueNumber = parseInt(args[0], 10);
+            const rawIssue = args[0].replace(/^#/, '').trim();
+            const issueNumber = parseInt(rawIssue, 10);
             if (isNaN(issueNumber)) {
                 writeOutput('Issue number must be an integer.', '#EF4444');
                 return;
@@ -565,7 +567,10 @@ export const initCommands = () => {
             }
 
             // Immediately switch to architect mode and show loading
-            StateMachine.transition('architect');
+            const transitioned = StateMachine.transition('architect');
+            if (!transitioned) {
+                store.setMode('architect');
+            }
             store.setMissionState({
                 active: true,
                 issueNumber,

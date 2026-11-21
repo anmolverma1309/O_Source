@@ -76,8 +76,8 @@ async def investigate(
     repo_id = f"{owner}/{repo}"
 
     # --- Vector search (dense) ---
-    disk_store = storage_manager.get_store(repo_id, is_guest=False)
     try:
+        disk_store = storage_manager.get_store(repo_id, is_guest=False)
         query_vec = await embed_text(issue_text)
         raw = disk_store.vector_query(
             collection_name="code_chunks",
